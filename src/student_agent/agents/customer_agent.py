@@ -48,7 +48,7 @@ async def collect_customer_context(context: AgentContext) -> AgentResult:
 
             evidence_ref = history.get("evidence_ref")
             if evidence_ref:
-                context.register_evidence(history)
+                context.register_domain_evidence("customer", history)
                 context.trace.emit(
                     case_id=case_id,
                     event_type="tool_result_consumed",

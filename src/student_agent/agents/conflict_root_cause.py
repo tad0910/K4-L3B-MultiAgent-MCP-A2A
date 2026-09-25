@@ -43,7 +43,7 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
 
             evidence_ref = items_evidence.get("evidence_ref")
             if evidence_ref:
-                context.register_evidence(items_evidence)
+                context.register_domain_evidence("items", items_evidence)
                 context.trace.emit(
                     case_id=case_id,
                     event_type="tool_result_consumed",
@@ -232,26 +232,73 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         responsible_parties.append({"party_type": "unknown", "party_id": None})
         resolution_actions = ["request_additional_documentation"]
 
-    # Đánh giá từng claim
+    # Đánh giá từng claim với evidence phù hợp theo domain
     claim_assessments: list[dict[str, Any]] = []
     for cl in claims:
         cid = cl.get("claim_id", "")
         ctopic = cl.get("topic", "")
         if ctopic == "requested_full_refund":
             verdict_cl = "supported" if recommended_refund_brl > 0 else "unsupported"
-        elif ctopic == primary_issue:
-            verdict_cl = "supported"
+            if "late_delivery" in primary_issue:
+                c_refs = (
+                    context.domain_evidence.get("shipment", [])
+                    + context.domain_evidence.get("payment", [])
+                )
+            else:
+                c_refs = (
+                    context.domain_evidence.get("payment", [])
+                    + context.domain_evidence.get("order", [])
+                )
+        elif ctopic in ("late_delivery_seller", "late_delivery_logistics", "delayed_dispatch"):
+            verdict_cl = "supported" if ctopic == primary_issue else "unsupported"
+            c_refs = (
+                context.domain_evidence.get("shipment", [])
+                + context.domain_evidence.get("order", [])
+            )
+        elif ctopic in (
+            "payment_mismatch",
+            "duplicate_charge",
+            "refund_pending",
+            "refund_failed",
+            "valid_split_payment",
+        ):
+            verdict_cl = "supported" if ctopic == primary_issue else "unsupported"
+            c_refs = (
+                context.domain_evidence.get("payment", [])
+                + context.domain_evidence.get("order", [])
+            )
+        elif ctopic in ("canceled_order_paid", "unavailable_order_paid"):
+            verdict_cl = "supported" if ctopic == primary_issue else "unsupported"
+            c_refs = (
+                context.domain_evidence.get("order", [])
+                + context.domain_evidence.get("items", [])
+                + context.domain_evidence.get("payment", [])
+            )
         else:
-            verdict_cl = "unsupported"
+            verdict_cl = "supported" if ctopic == primary_issue else "unsupported"
+            c_refs = context.domain_evidence.get("order", []) or list(context.evidence_refs[:3])
+
+        # Deduplicate and fallback
+        dedup_refs = [r for r in context.evidence_refs if r in c_refs]
+        if not dedup_refs:
+            dedup_refs = list(context.evidence_refs[:3])
 
         claim_assessments.append(
             {
                 "claim_id": cid,
                 "verdict": verdict_cl,
                 "confidence": 0.95,
-                "evidence_refs": list(context.evidence_refs[:5]),
+                "evidence_refs": dedup_refs[:5],
             }
         )
+
+    # Ghi nhận event policy_decided theo đúng lifecycle của Pha 4
+    context.trace.emit(
+        case_id=case_id,
+        event_type="policy_decided",
+        actor="conflict-root-cause-agent",
+        decision_code=primary_issue,
+    )
 
     # Lưu toàn bộ findings vào context
     context.findings["assessment"] = {

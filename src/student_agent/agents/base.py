@@ -17,6 +17,7 @@ class AgentContext:
     findings: dict[str, Any] = field(default_factory=dict)
     evidence_refs: list[str] = field(default_factory=list)
     evidence: dict[str, dict[str, Any]] = field(default_factory=dict)
+    domain_evidence: dict[str, list[str]] = field(default_factory=dict)
 
     def register_evidence(self, evidence: dict[str, Any]) -> None:
         evidence_ref = evidence.get("evidence_ref")
@@ -28,6 +29,15 @@ class AgentContext:
         self.evidence[evidence_ref] = evidence
         if evidence_ref not in self.evidence_refs:
             self.evidence_refs.append(evidence_ref)
+
+    def register_domain_evidence(self, domain: str, evidence: dict[str, Any]) -> None:
+        self.register_evidence(evidence)
+        ref = evidence.get("evidence_ref")
+        if ref:
+            if domain not in self.domain_evidence:
+                self.domain_evidence[domain] = []
+            if ref not in self.domain_evidence[domain]:
+                self.domain_evidence[domain].append(ref)
 
 
 AgentResult = dict[str, Any]

@@ -25,14 +25,14 @@ class EvidenceGateway:
     async def call(self, tool_name: str, *, case_id: str, **arguments: str) -> dict[str, Any]:
         payload = {"case_id": case_id, **arguments}
         result = None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 result = await self._session.call_tool(tool_name, arguments=payload)
                 break
             except Exception:
-                if attempt == 2:
+                if attempt == 1:
                     raise
-                await asyncio.sleep(0.5 * (attempt + 1))
+                await asyncio.sleep(0.5)
         is_error = getattr(result, "is_error", getattr(result, "isError", False))
         if is_error:
             message = " ".join(

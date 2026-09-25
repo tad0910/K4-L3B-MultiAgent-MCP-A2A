@@ -28,7 +28,7 @@ class EntityResolverAgent:
 
         evidence_ref = result.get("evidence_ref")
         if evidence_ref:
-            self.context.register_evidence(result)
+            self.context.register_domain_evidence("order", result)
             self.trace.emit(
                 case_id=case_id,
                 event_type="tool_result_consumed",

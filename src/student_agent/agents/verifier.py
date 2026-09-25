@@ -79,6 +79,8 @@ class Verifier:
             raise VerificationError("not_found status cannot contain resolved orders")
 
     def _evidence_scope(self, output: dict[str, Any]) -> set[str]:
+        if not output.get("evidence_refs"):
+            raise VerificationError("case output must contain at least one evidence_ref")
         declared = _refs(output)
         registered = set(self.context.evidence)
         missing = sorted(declared - registered)
@@ -148,6 +150,28 @@ class Verifier:
         ranks = [cause["rank"] for cause in output["root_cause_analysis"]["ranked_causes"]]
         if len(ranks) != len(set(ranks)):
             raise VerificationError("root causes contain duplicate ranks")
+
+        # Ràng buộc nhất quán giữa case_status và financial_resolution
+        status = output["assessment"]["case_status"]
+        financial = output["financial_resolution"]
+        if status == "no_action" and (
+            financial["recommended_refund_brl"] > 0 or len(financial["refund_lines"]) > 0
+        ):
+            raise VerificationError("no_action case cannot have refund or refund lines")
+        if status == "action_required" and len(output["resolution_actions"]) == 0:
+            raise VerificationError("action_required case must have resolution actions")
+
+        # Ràng buộc nhất quán giữa primary_issue và responsible_parties
+        primary = output["assessment"]["primary_issue"]
+        parties = [p["party_type"] for p in output["root_cause_analysis"]["responsible_parties"]]
+        if primary == "late_delivery_seller" and "logistics_provider" in parties:
+            raise VerificationError(
+                "late_delivery_seller cannot assign responsibility to logistics"
+            )
+        if primary == "late_delivery_logistics" and "seller" in parties:
+            raise VerificationError(
+                "late_delivery_logistics cannot assign responsibility to seller"
+            )
 
     def verify(self) -> dict[str, Any]:
         self._required_findings()
