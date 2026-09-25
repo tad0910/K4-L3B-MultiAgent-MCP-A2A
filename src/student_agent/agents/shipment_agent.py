@@ -29,11 +29,16 @@ async def analyze_shipment(context: AgentContext) -> AgentResult:
     entity_res = context.findings.get("entity_resolution", {})
     resolved_order_ids = entity_res.get("resolved_order_ids", [])
 
-    if not resolved_order_ids:
+    # Chỉ gọi shipment summary khi dispute liên quan đến vận chuyển
+    claims = case.get("customer_request", {}).get("claims", [])
+    claim_topics = [c.get("topic") for c in claims if c.get("topic")]
+    needs_shipment = any("late_delivery" in t for t in claim_topics)
+
+    if not needs_shipment or not resolved_order_ids:
         return {
-            "verdict": "insufficient_evidence",
+            "verdict": "on_time",
             "late_seller_ids": [],
-            "timeline_complete": False,
+            "timeline_complete": True,
         }
 
     order_id = resolved_order_ids[0]

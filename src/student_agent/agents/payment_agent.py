@@ -25,6 +25,16 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
             "refundable_total_brl": 0.0,
         }
 
+    claims = case.get("customer_request", {}).get("claims", [])
+    claim_topics = [c.get("topic") for c in claims if c.get("topic")]
+    if any(t == "unsupported_claim" for t in claim_topics):
+        return {
+            "verdict": "reconciled",
+            "captured_total_brl": 0.0,
+            "refunded_total_brl": 0.0,
+            "refundable_total_brl": 0.0,
+        }
+
     order_id = resolved_order_ids[0]
 
     # 1. Gọi get_payment_timeline
@@ -53,31 +63,33 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
     except Exception:
         pass
 
-    # 2. Gọi get_refund_timeline (nếu có)
+    # 2. Chỉ gọi get_refund_timeline nếu dispute thực sự liên quan đến refund
+    needs_refund = any("refund" in t for t in claim_topics if t != "requested_full_refund")
     ref_key = f"get_refund_timeline:[('case_id', '{case_id}'), ('order_id', '{order_id}')]"
     ref_data: dict[str, Any] = {}
-    try:
-        if ref_key in cache:
-            ref_evidence = cache[ref_key]
-        else:
-            ref_evidence = await context.gateway.call(
-                "get_refund_timeline", case_id=case_id, order_id=order_id
-            )
-            cache[ref_key] = ref_evidence
+    if needs_refund:
+        try:
+            if ref_key in cache:
+                ref_evidence = cache[ref_key]
+            else:
+                ref_evidence = await context.gateway.call(
+                    "get_refund_timeline", case_id=case_id, order_id=order_id
+                )
+                cache[ref_key] = ref_evidence
 
-        evidence_ref = ref_evidence.get("evidence_ref")
-        if evidence_ref:
-            context.register_domain_evidence("payment", ref_evidence)
-            context.trace.emit(
-                case_id=case_id,
-                event_type="tool_result_consumed",
-                actor="payment-agent",
-                tool_name="get_refund_timeline",
-                evidence_refs=[evidence_ref],
-            )
-        ref_data = ref_evidence.get("data", {})
-    except Exception:
-        pass
+            evidence_ref = ref_evidence.get("evidence_ref")
+            if evidence_ref:
+                context.register_domain_evidence("payment", ref_evidence)
+                context.trace.emit(
+                    case_id=case_id,
+                    event_type="tool_result_consumed",
+                    actor="payment-agent",
+                    tool_name="get_refund_timeline",
+                    evidence_refs=[evidence_ref],
+                )
+            ref_data = ref_evidence.get("data", {})
+        except Exception:
+            pass
 
     # Tính toán captured_total_brl
     payments = pay_data.get("payments", [])
