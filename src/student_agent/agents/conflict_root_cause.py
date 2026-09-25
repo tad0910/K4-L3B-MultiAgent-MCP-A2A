@@ -43,8 +43,7 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
 
             evidence_ref = items_evidence.get("evidence_ref")
             if evidence_ref:
-                if evidence_ref not in context.evidence_refs:
-                    context.evidence_refs.append(evidence_ref)
+                context.register_evidence(items_evidence)
                 context.trace.emit(
                     case_id=case_id,
                     event_type="tool_result_consumed",

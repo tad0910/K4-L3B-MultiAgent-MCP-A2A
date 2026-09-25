@@ -52,8 +52,7 @@ async def analyze_shipment(context: AgentContext) -> AgentResult:
 
         evidence_ref = evidence.get("evidence_ref")
         if evidence_ref:
-            if evidence_ref not in context.evidence_refs:
-                context.evidence_refs.append(evidence_ref)
+            context.register_evidence(evidence)
             context.trace.emit(
                 case_id=case_id,
                 event_type="tool_result_consumed",

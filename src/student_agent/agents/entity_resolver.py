@@ -28,8 +28,7 @@ class EntityResolverAgent:
 
         evidence_ref = result.get("evidence_ref")
         if evidence_ref:
-            if evidence_ref not in self.context.evidence_refs:
-                self.context.evidence_refs.append(evidence_ref)
+            self.context.register_evidence(result)
             self.trace.emit(
                 case_id=case_id,
                 event_type="tool_result_consumed",

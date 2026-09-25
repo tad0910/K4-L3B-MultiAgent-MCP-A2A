@@ -48,8 +48,7 @@ async def collect_customer_context(context: AgentContext) -> AgentResult:
 
             evidence_ref = history.get("evidence_ref")
             if evidence_ref:
-                if evidence_ref not in context.evidence_refs:
-                    context.evidence_refs.append(evidence_ref)
+                context.register_evidence(history)
                 context.trace.emit(
                     case_id=case_id,
                     event_type="tool_result_consumed",
@@ -65,7 +64,12 @@ async def collect_customer_context(context: AgentContext) -> AgentResult:
         except Exception:
             pass
 
+    # Verifier quy định related_orders phải nằm trong resolved scope
+    final_related = [oid for oid in related_order_ids if oid in resolved_order_ids]
+    if not final_related and resolved_order_ids:
+        final_related = resolved_order_ids
+
     return {
         "customer_unique_id": customer_unique_id,
-        "related_order_ids": sorted(list(related_order_ids)),
+        "related_order_ids": sorted(list(set(final_related))),
     }

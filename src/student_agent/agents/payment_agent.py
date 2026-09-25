@@ -41,8 +41,7 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
 
         evidence_ref = pay_evidence.get("evidence_ref")
         if evidence_ref:
-            if evidence_ref not in context.evidence_refs:
-                context.evidence_refs.append(evidence_ref)
+            context.register_evidence(pay_evidence)
             context.trace.emit(
                 case_id=case_id,
                 event_type="tool_result_consumed",
@@ -68,8 +67,7 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
 
         evidence_ref = ref_evidence.get("evidence_ref")
         if evidence_ref:
-            if evidence_ref not in context.evidence_refs:
-                context.evidence_refs.append(evidence_ref)
+            context.register_evidence(ref_evidence)
             context.trace.emit(
                 case_id=case_id,
                 event_type="tool_result_consumed",
