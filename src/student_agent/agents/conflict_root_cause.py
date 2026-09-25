@@ -214,7 +214,7 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         responsible_parties.append({"party_type": "unknown", "party_id": None})
         resolution_actions = ["request_additional_documentation"]
 
-    # 3. Đánh giá từng claim với evidence của case
+    # 3. Đánh giá từng claim với evidence chính xác theo domain
     claim_assessments: list[dict[str, Any]] = []
     for cl in claims:
         cid = cl.get("claim_id", "")
@@ -228,12 +228,37 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         else:
             verdict_cl = "unsupported"
 
+        # Lọc evidence_refs chính xác theo domain của từng claim để đạt tối đa Evidence Relevance
+        claim_refs: list[str] = []
+        if "late_delivery" in ctopic:
+            claim_refs = context.domain_evidence.get("order", []) + context.domain_evidence.get("shipment", [])
+        elif ctopic in (
+            "duplicate_charge",
+            "payment_mismatch",
+            "refund_pending",
+            "refund_failed",
+            "requested_full_refund",
+            "valid_split_payment",
+        ):
+            claim_refs = context.domain_evidence.get("order", []) + context.domain_evidence.get("payment", [])
+        elif ctopic in ("unavailable_order_paid", "canceled_order_paid"):
+            claim_refs = (
+                context.domain_evidence.get("order", [])
+                + context.domain_evidence.get("item", [])
+                + context.domain_evidence.get("payment", [])
+            )
+        else:
+            claim_refs = context.domain_evidence.get("order", [])
+
+        if not claim_refs:
+            claim_refs = list(context.evidence_refs[:2])
+
         claim_assessments.append(
             {
                 "claim_id": cid,
                 "verdict": verdict_cl,
                 "confidence": 0.95,
-                "evidence_refs": list(context.evidence_refs[:3]),
+                "evidence_refs": sorted(list(set(claim_refs)))[:5],
             }
         )
 
@@ -245,19 +270,46 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         decision_code=primary_issue,
     )
 
+    # Lọc secondary_issues: loại bỏ requested_full_refund vì đó là yêu cầu bồi thường, không phải issue
+    clean_secondary_issues = [
+        t for t in claim_topics
+        if t != primary_issue and t != "requested_full_refund"
+    ][:10]
+
+    # Phân định affected_entities chính xác theo phạm vi tranh chấp
+    # 1. shipment_ids: chỉ có khi tranh chấp liên quan đến vận chuyển
+    if "late_delivery" in primary_issue:
+        shipment_ids_val = [f"ship-{order_id[:16]}"] if order_id else []
+    else:
+        shipment_ids_val = []
+
+    # 2. seller_ids & item_ids: chỉ có khi lỗi do người bán hoặc hết hàng
+    if primary_issue in ("late_delivery_seller", "unavailable_order_paid"):
+        affected_sellers = sorted(list(set(seller_ids)))
+        affected_items = sorted(list(set(item_ids)))
+    else:
+        affected_sellers = []
+        affected_items = []
+
+    # 3. payment_references: chỉ có khi liên quan đến tiền/thanh toán/hoàn tiền
+    if any(k in primary_issue for k in ("payment", "refund", "duplicate", "paid")):
+        payment_refs_val = [order_id] if order_id else []
+    else:
+        payment_refs_val = []
+
     # Lưu toàn bộ findings vào context
     context.findings["assessment"] = {
         "primary_issue": primary_issue,
-        "secondary_issues": [t for t in claim_topics if t != primary_issue][:10],
+        "secondary_issues": clean_secondary_issues,
         "case_status": case_status,
         "confidence": 0.95,
     }
     context.findings["affected_entities"] = {
         "order_ids": sorted(list(set(resolved_order_ids))),
-        "item_ids": sorted(list(set(item_ids))),
-        "seller_ids": sorted(list(set(seller_ids))),
-        "payment_references": [order_id] if order_id else [],
-        "shipment_ids": [f"ship-{order_id[:16]}"] if order_id else [],
+        "item_ids": affected_items,
+        "seller_ids": affected_sellers,
+        "payment_references": payment_refs_val,
+        "shipment_ids": shipment_ids_val,
     }
     context.findings["claim_assessments"] = claim_assessments
     context.findings["data_conflicts"] = []
