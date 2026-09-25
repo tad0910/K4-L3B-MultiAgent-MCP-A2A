@@ -32,9 +32,7 @@ async def analyze_shipment(context: AgentContext) -> AgentResult:
     # Chỉ gọi shipment summary khi dispute liên quan đến vận chuyển
     claims = case.get("customer_request", {}).get("claims", [])
     claim_topics = [c.get("topic") for c in claims if c.get("topic")]
-    needs_shipment = any("late_delivery" in t for t in claim_topics) or any(
-        t == "unsupported_claim" for t in claim_topics
-    )
+    needs_shipment = any("late_delivery" in t for t in claim_topics)
 
     if not needs_shipment or not resolved_order_ids:
         return {
@@ -105,16 +103,21 @@ async def analyze_shipment(context: AgentContext) -> AgentResult:
             for e in events
         )
 
-        if "late_delivery_seller" in claim_topics or has_seller_delay_event or late_sellers:
+        if order_status in ("canceled", "unavailable"):
+            verdict = "returned" if delivered_customer_at else "on_time"
+        elif has_seller_delay_event or (
+            late_sellers
+            and delivered_customer_at
+            and estimated_delivery_at
+            and delivered_customer_at > estimated_delivery_at
+        ):
             verdict = "seller_delay"
-        elif "late_delivery_logistics" in claim_topics or has_logistics_event or (
+        elif has_logistics_event or (
             delivered_customer_at
             and estimated_delivery_at
             and delivered_customer_at > estimated_delivery_at
         ):
             verdict = "logistics_delay"
-        elif order_status in ("canceled", "unavailable"):
-            verdict = "returned" if delivered_customer_at else "on_time"
         elif (
             delivered_customer_at
             and estimated_delivery_at

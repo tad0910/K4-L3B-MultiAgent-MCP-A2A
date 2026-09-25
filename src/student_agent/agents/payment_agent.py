@@ -27,6 +27,13 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
 
     claims = case.get("customer_request", {}).get("claims", [])
     claim_topics = [c.get("topic") for c in claims if c.get("topic")]
+    if any(t == "unsupported_claim" for t in claim_topics):
+        return {
+            "verdict": "reconciled",
+            "captured_total_brl": 0.0,
+            "refunded_total_brl": 0.0,
+            "refundable_total_brl": 0.0,
+        }
 
     order_id = resolved_order_ids[0]
 
@@ -132,16 +139,16 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
             has_duplicate = True
 
     # Xác định verdict
-    if "duplicate_charge" in claim_topics or (has_duplicate and "duplicate_charge" in claim_topics):
-        verdict = "duplicate_capture"
-    elif "payment_mismatch" in claim_topics or has_mismatch:
-        verdict = "capture_mismatch"
-    elif "refund_failed" in claim_topics or has_refund_failed:
+    if has_refund_failed:
         verdict = "refund_failed"
-    elif "refund_pending" in claim_topics or has_refund_pending:
+    elif has_refund_pending:
         verdict = "refund_pending"
     elif refunded_total > 0 and refunded_total >= captured_total:
         verdict = "refunded"
+    elif has_duplicate:
+        verdict = "duplicate_capture"
+    elif has_mismatch:
+        verdict = "capture_mismatch"
     elif captured_total > 0:
         verdict = "reconciled"
     else:
