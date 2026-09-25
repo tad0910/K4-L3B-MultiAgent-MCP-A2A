@@ -76,9 +76,8 @@ async def analyze_shipment(context: AgentContext) -> AgentResult:
         for limit in shipping_limits:
             seller_id = limit.get("seller_id")
             limit_dt = _parse_dt(limit.get("shipping_limit_at"))
-            if seller_id and limit_dt and delivered_carrier_at:
-                if delivered_carrier_at > limit_dt:
-                    late_sellers.add(seller_id)
+            if seller_id and limit_dt and delivered_carrier_at and delivered_carrier_at > limit_dt:
+                late_sellers.add(seller_id)
 
         # 2. Xác định timeline_complete
         timeline_complete = bool(
@@ -102,13 +101,25 @@ async def analyze_shipment(context: AgentContext) -> AgentResult:
 
         if order_status in ("canceled", "unavailable"):
             verdict = "returned" if delivered_customer_at else "on_time"
-        elif has_seller_delay_event or (late_sellers and delivered_customer_at and estimated_delivery_at and delivered_customer_at > estimated_delivery_at):
+        elif has_seller_delay_event or (
+            late_sellers
+            and delivered_customer_at
+            and estimated_delivery_at
+            and delivered_customer_at > estimated_delivery_at
+        ):
             verdict = "seller_delay"
-        elif has_logistics_event or (delivered_customer_at and estimated_delivery_at and delivered_customer_at > estimated_delivery_at):
+        elif has_logistics_event or (
+            delivered_customer_at
+            and estimated_delivery_at
+            and delivered_customer_at > estimated_delivery_at
+        ):
             verdict = "logistics_delay"
-        elif delivered_customer_at and estimated_delivery_at and delivered_customer_at <= estimated_delivery_at:
-            verdict = "on_time"
-        elif order_status == "delivered":
+        elif (
+            delivered_customer_at
+            and estimated_delivery_at
+            and delivered_customer_at <= estimated_delivery_at
+            or order_status == "delivered"
+        ):
             verdict = "on_time"
         else:
             verdict = "insufficient_evidence"

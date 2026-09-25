@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .base import AgentContext, AgentResult
+
+HEX_ORDER_PATTERN = re.compile(r"^[0-9a-fA-F]{32}$")
 
 
 class EntityResolverAgent:
@@ -39,32 +42,46 @@ class EntityResolverAgent:
     async def resolve(self) -> AgentResult:
         case_id = self.case["case_id"]
         candidates = self.case.get("candidate_order_ids", [])
+        claimed_order_id = self.case.get("customer_request", {}).get("claimed_order_id")
 
         resolved_order_ids: list[str] = []
         rejected_candidates: list[str] = []
 
-        for candidate in candidates:
-            # Lọc nhanh các mã candidate giả dạng 'candidate-...'
-            if candidate.startswith("candidate-"):
+        # Sắp xếp candidate: ưu tiên claimed_order_id lên đầu tiên
+        sorted_candidates: list[str] = []
+        if claimed_order_id and claimed_order_id in candidates:
+            sorted_candidates.append(claimed_order_id)
+        for c in candidates:
+            if c not in sorted_candidates:
+                sorted_candidates.append(c)
+
+        for candidate in sorted_candidates:
+            # 1. Lọc nhanh không tốn MCP: kiểm tra định dạng hex 32 ký tự
+            if not HEX_ORDER_PATTERN.match(candidate):
                 rejected_candidates.append(candidate)
                 continue
 
+            # 2. Xác thực với MCP get_order
             try:
-                await self._call_mcp("get_order", case_id, order_id=candidate)
-                resolved_order_ids.append(candidate)
+                order_evidence = await self._call_mcp("get_order", case_id, order_id=candidate)
+                data = order_evidence.get("data", {})
+                if data and data.get("order_id") == candidate:
+                    resolved_order_ids.append(candidate)
+                else:
+                    rejected_candidates.append(candidate)
             except Exception:
                 rejected_candidates.append(candidate)
 
-        # Đánh giá status và confidence theo kết quả xác thực
+        # Đánh giá status và confidence theo kết quả
         if resolved_order_ids:
             status = "resolved"
-            confidence = 0.95
+            confidence = 0.98 if claimed_order_id in resolved_order_ids else 0.90
         elif rejected_candidates:
             status = "not_found"
-            confidence = 0.1
+            confidence = 0.10
         else:
             status = "ambiguous"
-            confidence = 0.5
+            confidence = 0.50
 
         return {
             "status": status,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import AgentContext, AgentResult
+from .base import AgentContext
 
 
 async def verify_case(context: AgentContext) -> dict[str, Any]:
@@ -14,44 +14,65 @@ async def verify_case(context: AgentContext) -> dict[str, Any]:
 
     # Lấy các trường bắt buộc
     assessment = findings.get("assessment", {})
-    affected_entities = findings.get("affected_entities", {
-        "order_ids": [],
-        "item_ids": [],
-        "seller_ids": [],
-        "payment_references": [],
-        "shipment_ids": [],
-    })
-    entity_resolution = findings.get("entity_resolution", {
-        "status": "not_found",
-        "resolved_order_ids": [],
-        "rejected_candidates": [],
-        "confidence": 0.0,
-    })
-    customer_context = findings.get("customer_context", {
-        "customer_unique_id": None,
-        "related_order_ids": [],
-    })
-    shipment_analysis = findings.get("shipment_analysis", {
-        "verdict": "insufficient_evidence",
-        "late_seller_ids": [],
-        "timeline_complete": False,
-    })
-    payment_analysis = findings.get("payment_analysis", {
-        "verdict": "insufficient_evidence",
-        "captured_total_brl": 0.0,
-        "refunded_total_brl": 0.0,
-        "refundable_total_brl": 0.0,
-    })
-    root_cause_analysis = findings.get("root_cause_analysis", {
-        "ranked_causes": [{"cause_code": "INSUFFICIENT_TIMELINE_EVIDENCE", "rank": 1}],
-        "responsible_parties": [{"party_type": "unknown", "party_id": None}],
-    })
+    affected_entities = findings.get(
+        "affected_entities",
+        {
+            "order_ids": [],
+            "item_ids": [],
+            "seller_ids": [],
+            "payment_references": [],
+            "shipment_ids": [],
+        },
+    )
+    entity_resolution = findings.get(
+        "entity_resolution",
+        {
+            "status": "not_found",
+            "resolved_order_ids": [],
+            "rejected_candidates": [],
+            "confidence": 0.0,
+        },
+    )
+    customer_context = findings.get(
+        "customer_context",
+        {
+            "customer_unique_id": None,
+            "related_order_ids": [],
+        },
+    )
+    shipment_analysis = findings.get(
+        "shipment_analysis",
+        {
+            "verdict": "insufficient_evidence",
+            "late_seller_ids": [],
+            "timeline_complete": False,
+        },
+    )
+    payment_analysis = findings.get(
+        "payment_analysis",
+        {
+            "verdict": "insufficient_evidence",
+            "captured_total_brl": 0.0,
+            "refunded_total_brl": 0.0,
+            "refundable_total_brl": 0.0,
+        },
+    )
+    root_cause_analysis = findings.get(
+        "root_cause_analysis",
+        {
+            "ranked_causes": [{"cause_code": "INSUFFICIENT_TIMELINE_EVIDENCE", "rank": 1}],
+            "responsible_parties": [{"party_type": "unknown", "party_id": None}],
+        },
+    )
     data_conflicts = findings.get("data_conflicts", [])
-    financial_resolution = findings.get("financial_resolution", {
-        "currency": "BRL",
-        "recommended_refund_brl": 0.0,
-        "refund_lines": [],
-    })
+    financial_resolution = findings.get(
+        "financial_resolution",
+        {
+            "currency": "BRL",
+            "recommended_refund_brl": 0.0,
+            "refund_lines": [],
+        },
+    )
     resolution_actions = findings.get("resolution_actions", ["request_additional_documentation"])
     claim_assessments = findings.get("claim_assessments", [])
 

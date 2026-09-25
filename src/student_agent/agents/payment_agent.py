@@ -85,7 +85,11 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
     payments = pay_data.get("payments", [])
     pay_events = pay_data.get("events", [])
 
-    captured_events = [e for e in pay_events if e.get("event_type") == "captured" and e.get("status") == "confirmed"]
+    captured_events = [
+        e
+        for e in pay_events
+        if e.get("event_type") == "captured" and e.get("status") == "confirmed"
+    ]
     if captured_events:
         captured_total = sum(float(e.get("amount_brl", 0.0)) for e in captured_events)
     elif payments:
@@ -117,7 +121,10 @@ async def analyze_payment(context: AgentContext) -> AgentResult:
     # Kiểm tra duplicate payment: ví dụ có nhiều dòng payment trùng lặp hoàn toàn
     has_duplicate = False
     if len(payments) > 1:
-        signatures = [(p.get("payment_sequential"), p.get("payment_type"), p.get("payment_value")) for p in payments]
+        signatures = [
+            (p.get("payment_sequential"), p.get("payment_type"), p.get("payment_value"))
+            for p in payments
+        ]
         if len(signatures) != len(set(signatures)):
             has_duplicate = True
 

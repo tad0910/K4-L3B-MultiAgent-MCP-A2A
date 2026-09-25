@@ -9,19 +9,32 @@ async def collect_customer_context(context: AgentContext) -> AgentResult:
     """Investigate customer unique ID and history of related orders."""
     case = context.case
     case_id = case["case_id"]
-    customer_unique_id = case.get("customer_unique_id_hint")
 
     if not hasattr(context, "cache"):
         context.cache = {}
     cache: dict[str, Any] = context.cache
 
-    # Lấy các order_ids đã được entity_resolver tìm ra
+    # 1. Xác định customer_unique_id (từ hint hoặc fallback từ order data trong cache)
+    customer_unique_id = case.get("customer_unique_id_hint")
+    if not customer_unique_id:
+        for k, v in cache.items():
+            if k.startswith("get_order:"):
+                cid = v.get("data", {}).get("customer_id")
+                if cid:
+                    customer_unique_id = cid
+                    break
+
+    # 2. Lấy các order_ids đã được entity_resolver tìm ra
     entity_res = context.findings.get("entity_resolution", {})
     resolved_order_ids = entity_res.get("resolved_order_ids", [])
     related_order_ids: set[str] = set(resolved_order_ids)
 
+    # 3. Truy vấn get_customer_history qua MCP nếu có customer_unique_id
     if customer_unique_id:
-        cache_key = f"get_customer_history:[('case_id', '{case_id}'), ('customer_unique_id', '{customer_unique_id}')]"
+        cache_key = (
+            f"get_customer_history:[('case_id', '{case_id}'), "
+            f"('customer_unique_id', '{customer_unique_id}')]"
+        )
         try:
             if cache_key in cache:
                 history = cache[cache_key]

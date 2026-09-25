@@ -29,7 +29,7 @@ class EvidenceGateway:
             try:
                 result = await self._session.call_tool(tool_name, arguments=payload)
                 break
-            except Exception as exc:
+            except Exception:
                 if attempt == 2:
                     raise
                 await asyncio.sleep(0.5 * (attempt + 1))

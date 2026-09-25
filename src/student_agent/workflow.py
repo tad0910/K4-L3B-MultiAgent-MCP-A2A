@@ -26,16 +26,22 @@ async def solve_case(
     context = AgentContext(case=case, gateway=gateway, trace=trace)
     case_id = case["case_id"]
 
-    trace.emit(case_id=case_id, event_type="task_assigned", actor="coordinator", target="entity-agent")
+    trace.emit(
+        case_id=case_id, event_type="task_assigned", actor="coordinator", target="entity-agent"
+    )
     context.findings["entity_resolution"] = await resolve_entities(context)
 
     trace.emit(case_id=case_id, event_type="handoff", actor="entity-agent", target="customer-agent")
     context.findings["customer_context"] = await collect_customer_context(context)
 
-    trace.emit(case_id=case_id, event_type="task_assigned", actor="coordinator", target="shipment-agent")
+    trace.emit(
+        case_id=case_id, event_type="task_assigned", actor="coordinator", target="shipment-agent"
+    )
     context.findings["shipment_analysis"] = await analyze_shipment(context)
 
-    trace.emit(case_id=case_id, event_type="task_assigned", actor="coordinator", target="payment-agent")
+    trace.emit(
+        case_id=case_id, event_type="task_assigned", actor="coordinator", target="payment-agent"
+    )
     context.findings["payment_analysis"] = await analyze_payment(context)
 
     trace.emit(

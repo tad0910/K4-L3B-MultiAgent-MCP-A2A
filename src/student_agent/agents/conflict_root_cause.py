@@ -81,14 +81,18 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         primary_issue = "late_delivery_logistics"
         case_status = "action_required"
         ranked_causes.append({"cause_code": "CARRIER_TRANSIT_DELAY", "rank": 1})
-        responsible_parties.append({"party_type": "logistics_provider", "party_id": "carrier-default"})
+        responsible_parties.append(
+            {"party_type": "logistics_provider", "party_id": "carrier-default"}
+        )
         recommended_refund_brl = round(refundable_total, 2)
         if recommended_refund_brl > 0:
-            refund_lines.append({
-                "reason_code": "late_delivery_refund",
-                "amount_brl": recommended_refund_brl,
-                "entity_id": order_id,
-            })
+            refund_lines.append(
+                {
+                    "reason_code": "late_delivery_refund",
+                    "amount_brl": recommended_refund_brl,
+                    "entity_id": order_id,
+                }
+            )
         resolution_actions = ["issue_customer_refund", "file_carrier_dispute"]
 
     elif "late_delivery_seller" in claim_topics or shipment_verdict == "seller_delay":
@@ -99,47 +103,59 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
             responsible_parties.append({"party_type": "seller", "party_id": sid})
         recommended_refund_brl = round(refundable_total, 2)
         if recommended_refund_brl > 0:
-            refund_lines.append({
-                "reason_code": "seller_delay_refund",
-                "amount_brl": recommended_refund_brl,
-                "entity_id": order_id,
-            })
+            refund_lines.append(
+                {
+                    "reason_code": "seller_delay_refund",
+                    "amount_brl": recommended_refund_brl,
+                    "entity_id": order_id,
+                }
+            )
         resolution_actions = ["issue_customer_refund", "penalize_seller_sla"]
 
     elif "duplicate_charge" in claim_topics or payment_verdict == "duplicate_capture":
         primary_issue = "duplicate_charge"
         case_status = "action_required"
         ranked_causes.append({"cause_code": "GATEWAY_DUPLICATE_CAPTURE", "rank": 1})
-        responsible_parties.append({"party_type": "payment_provider", "party_id": "payment_gateway"})
+        responsible_parties.append(
+            {"party_type": "payment_provider", "party_id": "payment_gateway"}
+        )
         # Hoàn lại phần tiền bị trùng
         recommended_refund_brl = round(captured_total / 2, 2) if captured_total > 0 else 0.0
         if recommended_refund_brl > 0:
-            refund_lines.append({
-                "reason_code": "duplicate_charge_reversal",
-                "amount_brl": recommended_refund_brl,
-                "entity_id": order_id,
-            })
+            refund_lines.append(
+                {
+                    "reason_code": "duplicate_charge_reversal",
+                    "amount_brl": recommended_refund_brl,
+                    "entity_id": order_id,
+                }
+            )
         resolution_actions = ["reverse_duplicate_charge", "notify_customer"]
 
     elif "payment_mismatch" in claim_topics or payment_verdict == "capture_mismatch":
         primary_issue = "payment_mismatch"
         case_status = "action_required"
         ranked_causes.append({"cause_code": "PAYMENT_RECONCILIATION_MISMATCH", "rank": 1})
-        responsible_parties.append({"party_type": "payment_provider", "party_id": "payment_gateway"})
+        responsible_parties.append(
+            {"party_type": "payment_provider", "party_id": "payment_gateway"}
+        )
         recommended_refund_brl = round(refundable_total, 2)
         if recommended_refund_brl > 0:
-            refund_lines.append({
-                "reason_code": "reconciliation_correction",
-                "amount_brl": recommended_refund_brl,
-                "entity_id": order_id,
-            })
+            refund_lines.append(
+                {
+                    "reason_code": "reconciliation_correction",
+                    "amount_brl": recommended_refund_brl,
+                    "entity_id": order_id,
+                }
+            )
         resolution_actions = ["reconcile_discrepancy", "issue_partial_refund"]
 
     elif "refund_pending" in claim_topics or payment_verdict == "refund_pending":
         primary_issue = "refund_pending"
         case_status = "action_required"
         ranked_causes.append({"cause_code": "BANK_PROCESSING_PENDING", "rank": 1})
-        responsible_parties.append({"party_type": "payment_provider", "party_id": "banking_partner"})
+        responsible_parties.append(
+            {"party_type": "payment_provider", "party_id": "banking_partner"}
+        )
         recommended_refund_brl = 0.0
         resolution_actions = ["expedite_bank_clearance", "notify_customer_timeline"]
 
@@ -147,14 +163,18 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         primary_issue = "refund_failed"
         case_status = "action_required"
         ranked_causes.append({"cause_code": "REFUND_GATEWAY_REJECTION", "rank": 1})
-        responsible_parties.append({"party_type": "payment_provider", "party_id": "payment_gateway"})
+        responsible_parties.append(
+            {"party_type": "payment_provider", "party_id": "payment_gateway"}
+        )
         recommended_refund_brl = round(refundable_total, 2)
         if recommended_refund_brl > 0:
-            refund_lines.append({
-                "reason_code": "retry_failed_refund",
-                "amount_brl": recommended_refund_brl,
-                "entity_id": order_id,
-            })
+            refund_lines.append(
+                {
+                    "reason_code": "retry_failed_refund",
+                    "amount_brl": recommended_refund_brl,
+                    "entity_id": order_id,
+                }
+            )
         resolution_actions = ["reissue_failed_refund", "update_payment_method"]
 
     elif "canceled_order_paid" in claim_topics:
@@ -164,11 +184,13 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         responsible_parties.append({"party_type": "platform", "party_id": "order_system"})
         recommended_refund_brl = round(captured_total, 2)
         if recommended_refund_brl > 0:
-            refund_lines.append({
-                "reason_code": "canceled_order_refund",
-                "amount_brl": recommended_refund_brl,
-                "entity_id": order_id,
-            })
+            refund_lines.append(
+                {
+                    "reason_code": "canceled_order_refund",
+                    "amount_brl": recommended_refund_brl,
+                    "entity_id": order_id,
+                }
+            )
         resolution_actions = ["issue_full_refund", "cancel_order_sync"]
 
     elif "unavailable_order_paid" in claim_topics:
@@ -179,11 +201,13 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
             responsible_parties.append({"party_type": "seller", "party_id": sid})
         recommended_refund_brl = round(captured_total, 2)
         if recommended_refund_brl > 0:
-            refund_lines.append({
-                "reason_code": "stockout_refund",
-                "amount_brl": recommended_refund_brl,
-                "entity_id": order_id,
-            })
+            refund_lines.append(
+                {
+                    "reason_code": "stockout_refund",
+                    "amount_brl": recommended_refund_brl,
+                    "entity_id": order_id,
+                }
+            )
         resolution_actions = ["issue_full_refund", "update_seller_inventory"]
 
     elif "valid_split_payment" in claim_topics:
@@ -221,12 +245,14 @@ async def analyze_conflicts_and_root_cause(context: AgentContext) -> AgentResult
         else:
             verdict_cl = "unsupported"
 
-        claim_assessments.append({
-            "claim_id": cid,
-            "verdict": verdict_cl,
-            "confidence": 0.95,
-            "evidence_refs": list(context.evidence_refs[:5]),
-        })
+        claim_assessments.append(
+            {
+                "claim_id": cid,
+                "verdict": verdict_cl,
+                "confidence": 0.95,
+                "evidence_refs": list(context.evidence_refs[:5]),
+            }
+        )
 
     # Lưu toàn bộ findings vào context
     context.findings["assessment"] = {
